@@ -60,6 +60,12 @@ text, usage = await run_codex(
 
 Both raise `llm_gateway.CliAgentError` if the binary is missing, the process exits non-zero, or it hangs past a 15-minute timeout (killed automatically).
 
+## `cwd` is not a sandbox
+
+`run_claude_code` and `run_codex` launch a real, fully capable coding agent as a subprocess. The `cwd` argument sets its working directory — it is **not** a filesystem jail. Confirmed by direct testing: the agent can read and write anywhere the OS user account has access, including outside `cwd` (e.g. it will follow an editable pip install to a sibling project directory, or trigger `git`'s own parent-directory search for `.git` and commit to a repo above `cwd`).
+
+If you need the agent confined to a specific directory, that requires OS-level isolation (a container, a restricted user account, a VM) — this library does not provide it. Don't point `cwd` at a copy of a real project and assume the original is safe; it isn't.
+
 ## The TokenUsage contract
 
 ```python
