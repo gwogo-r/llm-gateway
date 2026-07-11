@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>llm-gateway — one import for API calls and CLI agents</title>
+<meta name="description" content="One import for OpenRouter/OpenAI chat completions and subscription-based CLI agents (Claude Code, Codex), with a single TokenUsage contract for both.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔌</text></svg>">
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #11161d;
+    --panel-2: #0e1319;
+    --border: #202b38;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --green: #3fb950;
+    --cyan: #58c7f3;
+    --yellow: #d29922;
+    --red: #f85149;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .container { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(11,15,20,.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { display: flex; align-items: center; gap: 22px; height: 56px; }
+  .logo { font-weight: 700; font-size: 17px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .logo:hover { text-decoration: none; }
+  .nav-links { display: flex; gap: 18px; margin-left: auto; align-items: center; }
+  .nav-links a { color: var(--muted); font-size: 14px; }
+  .nav-links a:hover { color: var(--text); text-decoration: none; }
+  #lang-toggle {
+    background: var(--panel); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+  #lang-toggle:hover { color: var(--text); border-color: var(--muted); }
+
+  .hero { padding: 72px 0 40px; text-align: center; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% -20% auto; height: 130%;
+    background: radial-gradient(ellipse 55% 45% at 50% 0%, rgba(88,199,243,.14), transparent 70%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    font-size: clamp(36px, 6.5vw, 54px); line-height: 1.15; letter-spacing: -1px;
+    margin-bottom: 18px;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p.sub { color: var(--muted); font-size: 19px; max-width: 640px; margin: 0 auto 30px; }
+  .badges { display: flex; gap: 10px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+  .badge {
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px;
+    background: var(--panel);
+  }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 15px;
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .btn:hover { text-decoration: none; }
+  .btn-primary { background: var(--cyan); color: #04121a; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-ghost { border-color: var(--border); color: var(--text); background: var(--panel); }
+  .btn-ghost:hover { border-color: var(--muted); }
+  .pip {
+    margin-top: 26px; display: inline-flex; align-items: center; gap: 12px;
+    font-family: var(--mono); font-size: 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .pip .dollar { color: var(--green); user-select: none; }
+  .copy-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-size: 12px; padding: 3px 9px; cursor: pointer; font-family: inherit;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  .terminal {
+    margin: 46px auto 0; max-width: 780px; text-align: left;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
+  .term-title { color: var(--muted); font-size: 12.5px; font-family: var(--mono); margin-left: 8px; }
+  .term-body { padding: 16px 18px; overflow-x: auto; }
+  .term-body pre { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; color: var(--text); }
+  .t-dim { color: var(--muted); }
+  .t-green { color: var(--green); }
+  .t-cyan { color: var(--cyan); }
+  .t-yellow { color: var(--yellow); }
+  .t-bold { font-weight: 700; }
+
+  section { padding: 64px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: 30px; letter-spacing: -.5px; margin-bottom: 10px; }
+  .section-sub { color: var(--muted); margin-bottom: 36px; max-width: 620px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px; }
+  .card .icon { font-size: 26px; margin-bottom: 12px; }
+  .card h3 { font-size: 16.5px; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14.5px; }
+
+  .codeblock {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 18px; margin: 14px 0; position: relative; overflow-x: auto;
+  }
+  .codeblock pre { font-family: var(--mono); font-size: 13.5px; line-height: 1.7; }
+  .codeblock .copy-btn { position: absolute; top: 10px; right: 10px; background: var(--panel); }
+  .codeblock .cmt { color: var(--muted); }
+  .codeblock .kw { color: var(--cyan); }
+  .codeblock .str { color: var(--green); }
+
+  table.contract { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  table.contract th, table.contract td {
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  table.contract th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+  table.contract td.field { font-family: var(--mono); color: var(--cyan); }
+  table.contract td.desc { color: var(--muted); }
+
+  .fixtable { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  .fixtable th, .fixtable td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .fixtable th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+  .fixtable td.problem { color: var(--text); }
+  .fixtable td.fix { color: var(--muted); }
+
+  .warn-box {
+    background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.35);
+    border-radius: 12px; padding: 22px 24px; margin-top: 8px;
+  }
+  .warn-box h3 { color: var(--yellow); font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .warn-box p { color: var(--muted); font-size: 14.5px; margin-bottom: 10px; }
+  .warn-box p:last-child { margin-bottom: 0; }
+  .warn-box code { font-family: var(--mono); font-size: 13px; color: var(--text); }
+
+  footer {
+    border-top: 1px solid var(--border); padding: 36px 0 48px;
+    color: var(--muted); font-size: 14px; text-align: center;
+  }
+  footer .links { margin-bottom: 10px; display: flex; gap: 18px; justify-content: center; }
+  @media (max-width: 560px) {
+    .nav-links a:not(#lang-toggle) { display: none; }
+    .hero { padding-top: 48px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container nav-inner">
+    <a class="logo" href="#">🔌 llm-gateway</a>
+    <div class="nav-links">
+      <a href="#features" data-i18n="nav_features">Features</a>
+      <a href="#contract" data-i18n="nav_contract">TokenUsage</a>
+      <a href="#install" data-i18n="nav_install">Install</a>
+      <a href="#" class="gh-link">GitHub</a>
+      <button id="lang-toggle" title="Switch language">RU</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <h1 data-i18n-html="hero_h1">One import for <span class="grad">every way</span><br>your code talks to an LLM</h1>
+    <p class="sub" data-i18n="hero_sub">API calls (OpenRouter/OpenAI) and subscription-based CLI agents (Claude Code, Codex) — both return the same TokenUsage shape, so cost tracking never has to special-case the provider.</p>
+    <div class="badges">
+      <span class="badge">Python 3.11+</span>
+      <span class="badge">MIT License</span>
+      <span class="badge" data-i18n="badge_lib">Library, not a service</span>
+    </div>
+    <div class="cta">
+      <a class="btn btn-primary gh-link" href="#" data-i18n="cta_github">View on GitHub</a>
+      <a class="btn btn-ghost" href="#install" data-i18n="cta_install">Install</a>
+    </div>
+    <div class="pip">
+      <span class="dollar">&gt;</span>
+      <span>pip install llm-gateway</span>
+      <button class="copy-btn" data-copy="pip install llm-gateway" data-i18n="copy">copy</button>
+    </div>
+
+    <div class="terminal">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">python — llm_gateway</span>
+      </div>
+      <div class="term-body">
+<pre><span class="t-dim">&gt;&gt;&gt;</span> <span class="t-cyan">from</span> llm_gateway <span class="t-cyan">import</span> chat_completion, run_claude_code
+
+<span class="t-dim">&gt;&gt;&gt;</span> text, usage = <span class="t-cyan">await</span> chat_completion(
+<span class="t-dim">...</span>     system=<span class="t-green">"You are a helpful assistant."</span>, user=<span class="t-green">"Summarize this."</span>,
+<span class="t-dim">...</span>     model=<span class="t-green">"openai/gpt-4o"</span>, api_key=key, base_url=url,
+<span class="t-dim">...</span>     price_in=2.5, price_out=10.0, stage=<span class="t-green">"extractor"</span>,
+<span class="t-dim">...</span> )
+<span class="t-dim">&gt;&gt;&gt;</span> usage.billing, usage.cost_usd
+<span class="t-bold">(<span class="t-yellow">'api'</span>, 0.000412)</span>          <span class="t-dim"># real $, charged per token</span>
+
+<span class="t-dim">&gt;&gt;&gt;</span> text, usage = <span class="t-cyan">await</span> run_claude_code(
+<span class="t-dim">...</span>     <span class="t-green">"Write unit tests for capacity.py"</span>, cwd=workspace, model=<span class="t-green">"haiku"</span>,
+<span class="t-dim">...</span> )
+<span class="t-dim">&gt;&gt;&gt;</span> usage.billing, usage.cost_usd
+<span class="t-bold">(<span class="t-yellow">'subscription'</span>, 0.0109)</span>    <span class="t-dim"># cost-equivalent, billed to your Claude plan</span></pre>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="container">
+    <h2 data-i18n="f_title">Why llm-gateway</h2>
+    <p class="section-sub" data-i18n="f_sub">Two very different billing models, hard-won Windows fixes, one honest contract.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="icon">💳</div>
+        <h3 data-i18n="f1_h">One cost contract, two billing models</h3>
+        <p data-i18n="f1_p">API calls cost real money per token. CLI agents run against a subscription you already pay for. Mixing them up in a dashboard is a real bug we hit — this library keeps them distinguishable from the source.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛠️</div>
+        <h3 data-i18n="f2_h">Windows fixes, done once</h3>
+        <p data-i18n="f2_p">.cmd shims, cmd.exe mangling multi-line prompts, Codex's read-only sandbox by default — all fixed here instead of rediscovered per project.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⏱️</div>
+        <h3 data-i18n="f3_h">No surprise hangs</h3>
+        <p data-i18n="f3_p">Every subprocess call has a 15-minute timeout and raises CliAgentError instead of hanging forever or failing silently.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📦</div>
+        <h3 data-i18n="f4_h">Library, not a service</h3>
+        <p data-i18n="f4_p">No server, no config file, no daemon. Just async functions you await and a Pydantic model you read.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="contract">
+  <div class="container">
+    <h2 data-i18n="c_title">The TokenUsage contract</h2>
+    <p class="section-sub" data-i18n="c_sub">Every function returns (text, TokenUsage) — aggregate across calls with plain arithmetic, splitting by billing when you display totals.</p>
+    <table class="contract">
+      <tr><th data-i18n="c_field">field</th><th data-i18n="c_desc">meaning</th></tr>
+      <tr><td class="field">stage</td><td class="desc" data-i18n="c_stage">"extractor", "agent_plan", "agent_exec_codex", ...</td></tr>
+      <tr><td class="field">model</td><td class="desc" data-i18n="c_model">model name used for the call</td></tr>
+      <tr><td class="field">prompt_tokens / completion_tokens</td><td class="desc" data-i18n="c_tokens">token counts, when the provider reports them</td></tr>
+      <tr><td class="field">cost_usd</td><td class="desc" data-i18n="c_cost">real charge (api) or cost-equivalent (subscription)</td></tr>
+      <tr><td class="field">billing</td><td class="desc" data-i18n="c_billing">"api" (real charge) | "subscription" (cost-equivalent)</td></tr>
+      <tr><td class="field">task_id / member_id</td><td class="desc" data-i18n="c_ids">optional — attribute cost to your own domain objects</td></tr>
+    </table>
+
+    <h2 style="margin-top:48px" data-i18n="w_title">Windows fixes carried by the CLI runners</h2>
+    <table class="fixtable">
+      <tr><th data-i18n="w_problem">problem</th><th data-i18n="w_fix">fix</th></tr>
+      <tr><td class="problem" data-i18n="w1_p">.cmd shims (npm-installed CLIs) can't be exec'd directly — WinError 193</td><td class="fix" data-i18n="w1_f">Routed through cmd.exe /c</td></tr>
+      <tr><td class="problem" data-i18n="w2_p">cmd.exe splits the command line on embedded newlines, silently dropping flags after them</td><td class="fix" data-i18n="w2_f">Newlines in arguments collapsed to spaces before building the command</td></tr>
+      <tr><td class="problem" data-i18n="w3_p">npm global bin dir not always on PATH even when the CLI is installed</td><td class="fix" data-i18n="w3_f">Falls back to %APPDATA%\npm</td></tr>
+      <tr><td class="problem" data-i18n="w4_p">Codex exec defaults to sandbox=read-only — can't write files even with a correct plan</td><td class="fix" data-i18n="w4_f">run_codex passes --sandbox workspace-write</td></tr>
+      <tr><td class="problem" data-i18n="w5_p">A hung agent process blocks the caller forever</td><td class="fix" data-i18n="w5_f">15-minute timeout, process killed, CliAgentError raised</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="install">
+  <div class="container">
+    <h2 data-i18n="i_title">Install</h2>
+    <p class="section-sub" data-i18n="i_sub">Python 3.11+. No API key required at import time — you pass it per call.</p>
+    <div class="codeblock">
+      <button class="copy-btn" data-copy="pip install llm-gateway" data-i18n="copy">copy</button>
+<pre><span class="cmt"># pip</span>
+<span class="kw">pip</span> install llm-gateway</pre>
+    </div>
+    <div class="codeblock">
+      <button class="copy-btn" data-copy="from llm_gateway import run_codex
+
+text, usage = await run_codex(
+    &quot;Write unit tests for capacity.py&quot;, cwd=&quot;/path/to/workspace&quot;, effort=&quot;low&quot;,
+)" data-i18n="copy">copy</button>
+<pre><span class="kw">from</span> llm_gateway <span class="kw">import</span> run_codex
+
+text, usage = <span class="kw">await</span> run_codex(
+    <span class="str">"Write unit tests for capacity.py"</span>, cwd=<span class="str">"/path/to/workspace"</span>, effort=<span class="str">"low"</span>,
+)
+<span class="cmt"># Codex doesn't report a $ figure under a ChatGPT subscription — cost_usd is 0.0</span></pre>
+    </div>
+
+    <h2 style="margin-top:48px" data-i18n="l_title">cwd is not a sandbox</h2>
+    <div class="warn-box">
+      <h3 data-i18n="l_h">⚠ <span data-i18n="l_h2">Read before you point cwd at a real project</span></h3>
+      <p data-i18n="l1"><code>run_claude_code</code> and <code>run_codex</code> launch a real, fully capable coding agent as a subprocess. <code>cwd</code> sets its working directory — it is <b>not</b> a filesystem jail.</p>
+      <p data-i18n="l2">Confirmed by direct testing: the agent can read and write anywhere the OS user account has access, including outside <code>cwd</code> — e.g. following an editable pip install to a sibling project, or triggering <code>git</code>'s own parent-directory search for <code>.git</code> and committing to a repo above <code>cwd</code>.</p>
+      <p data-i18n="l3">If you need the agent confined to a directory, that requires OS-level isolation (a container, a restricted user account, a VM) — this library does not provide it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="links">
+      <a href="#" class="gh-link">GitHub</a>
+      <a href="#" class="gh-issues" data-i18n="ft_issues">Report an issue</a>
+      <a href="#" class="gh-license">MIT License</a>
+    </div>
+    <div data-i18n="ft_note">Part of the Meldlane toolchain. No telemetry, no ads, no cloud beyond the API you point it at.</div>
+  </div>
+</footer>
+
+<script>
+const REPO_URL = "https://github.com/gwogo-r/llm-gateway";
+
+document.querySelectorAll(".gh-link").forEach(a => a.href = REPO_URL);
+document.querySelectorAll(".gh-issues").forEach(a => a.href = REPO_URL + "/issues");
+document.querySelectorAll(".gh-license").forEach(a => a.href = REPO_URL + "/blob/main/LICENSE");
+document.querySelectorAll("[data-copy]").forEach(b => {
+  b.addEventListener("click", () => {
+    navigator.clipboard.writeText(b.dataset.copy).then(() => {
+      const old = b.textContent;
+      b.textContent = "✓";
+      setTimeout(() => b.textContent = old, 1200);
+    });
+  });
+});
+
+const I18N = {
+  en: {
+    nav_features: "Features", nav_contract: "TokenUsage", nav_install: "Install", copy: "copy",
+    hero_h1: 'One import for <span class="grad">every way</span><br>your code talks to an LLM',
+    hero_sub: "API calls (OpenRouter/OpenAI) and subscription-based CLI agents (Claude Code, Codex) — both return the same TokenUsage shape, so cost tracking never has to special-case the provider.",
+    badge_lib: "Library, not a service",
+    cta_github: "View on GitHub", cta_install: "Install",
+    f_title: "Why llm-gateway",
+    f_sub: "Two very different billing models, hard-won Windows fixes, one honest contract.",
+    f1_h: "One cost contract, two billing models",
+    f1_p: "API calls cost real money per token. CLI agents run against a subscription you already pay for. Mixing them up in a dashboard is a real bug we hit — this library keeps them distinguishable from the source.",
+    f2_h: "Windows fixes, done once",
+    f2_p: ".cmd shims, cmd.exe mangling multi-line prompts, Codex's read-only sandbox by default — all fixed here instead of rediscovered per project.",
+    f3_h: "No surprise hangs",
+    f3_p: "Every subprocess call has a 15-minute timeout and raises CliAgentError instead of hanging forever or failing silently.",
+    f4_h: "Library, not a service",
+    f4_p: "No server, no config file, no daemon. Just async functions you await and a Pydantic model you read.",
+    c_title: "The TokenUsage contract",
+    c_sub: "Every function returns (text, TokenUsage) — aggregate across calls with plain arithmetic, splitting by billing when you display totals.",
+    c_field: "field", c_desc: "meaning",
+    c_stage: '"extractor", "agent_plan", "agent_exec_codex", ...',
+    c_model: "model name used for the call",
+    c_tokens: "token counts, when the provider reports them",
+    c_cost: "real charge (api) or cost-equivalent (subscription)",
+    c_billing: '"api" (real charge) | "subscription" (cost-equivalent)',
+    c_ids: "optional — attribute cost to your own domain objects",
+    w_title: "Windows fixes carried by the CLI runners",
+    w_problem: "problem", w_fix: "fix",
+    w1_p: "\.cmd shims (npm-installed CLIs) can't be exec'd directly — WinError 193", w1_f: "Routed through cmd.exe /c",
+    w2_p: "cmd.exe splits the command line on embedded newlines, silently dropping flags after them", w2_f: "Newlines in arguments collapsed to spaces before building the command",
+    w3_p: "npm global bin dir not always on PATH even when the CLI is installed", w3_f: "Falls back to %APPDATA%\\npm",
+    w4_p: "Codex exec defaults to sandbox=read-only — can't write files even with a correct plan", w4_f: "run_codex passes --sandbox workspace-write",
+    w5_p: "A hung agent process blocks the caller forever", w5_f: "15-minute timeout, process killed, CliAgentError raised",
+    i_title: "Install",
+    i_sub: "Python 3.11+. No API key required at import time — you pass it per call.",
+    l_title: "cwd is not a sandbox",
+    l_h2: "Read before you point cwd at a real project",
+    l1: "<code>run_claude_code</code> and <code>run_codex</code> launch a real, fully capable coding agent as a subprocess. <code>cwd</code> sets its working directory — it is <b>not</b> a filesystem jail.",
+    l2: "Confirmed by direct testing: the agent can read and write anywhere the OS user account has access, including outside <code>cwd</code> — e.g. following an editable pip install to a sibling project, or triggering <code>git</code>'s own parent-directory search for <code>.git</code> and committing to a repo above <code>cwd</code>.",
+    l3: "If you need the agent confined to a directory, that requires OS-level isolation (a container, a restricted user account, a VM) — this library does not provide it.",
+    ft_issues: "Report an issue",
+    ft_note: "Part of the Meldlane toolchain. No telemetry, no ads, no cloud beyond the API you point it at."
+  },
+  ru: {
+    nav_features: "Возможности", nav_contract: "TokenUsage", nav_install: "Установка", copy: "копир.",
+    hero_h1: 'Один импорт для <span class="grad">любого способа</span><br>обращения к LLM',
+    hero_sub: "API-вызовы (OpenRouter/OpenAI) и CLI-агенты по подписке (Claude Code, Codex) — оба возвращают одну и ту же форму TokenUsage, поэтому учёт стоимости никогда не превращается в разбор частных случаев по провайдеру.",
+    badge_lib: "Библиотека, не сервис",
+    cta_github: "Открыть на GitHub", cta_install: "Установить",
+    f_title: "Зачем llm-gateway",
+    f_sub: "Две разные модели оплаты, выстраданные Windows-фиксы, один честный контракт.",
+    f1_h: "Один контракт стоимости, две модели оплаты",
+    f1_p: "API-вызовы стоят реальные деньги за токен. CLI-агенты работают по уже оплаченной подписке. Перепутать их на дашборде — реальный баг, который мы поймали; библиотека держит их различимыми с источника.",
+    f2_h: "Windows-фиксы, сделаны один раз",
+    f2_p: ".cmd-обёртки, cmd.exe калечащий многострочные промпты, read-only sandbox у Codex по умолчанию — всё починено здесь, а не заново в каждом проекте.",
+    f3_h: "Никаких неожиданных зависаний",
+    f3_p: "У каждого подпроцесс-вызова таймаут 15 минут, при сбое — CliAgentError, а не вечное ожидание или молчаливая ошибка.",
+    f4_h: "Библиотека, не сервис",
+    f4_p: "Без сервера, без конфиг-файла, без демона. Просто async-функции и Pydantic-модель.",
+    c_title: "Контракт TokenUsage",
+    c_sub: "Каждая функция возвращает (text, TokenUsage) — суммируй между вызовами обычной арифметикой, разделяя по billing, когда показываешь итоги.",
+    c_field: "поле", c_desc: "значение",
+    c_stage: '"extractor", "agent_plan", "agent_exec_codex", ...',
+    c_model: "имя модели, использованной для вызова",
+    c_tokens: "число токенов, если провайдер их отдаёт",
+    c_cost: "реальная оплата (api) или cost-эквивалент (subscription)",
+    c_billing: '"api" (реальная оплата) | "subscription" (cost-эквивалент)',
+    c_ids: "опционально — привязка стоимости к своим доменным объектам",
+    w_title: "Windows-фиксы в CLI-раннерах",
+    w_problem: "проблема", w_fix: "фикс",
+    w1_p: ".cmd-обёртки (npm-инсталляции CLI) нельзя запустить напрямую — WinError 193", w1_f: "Через cmd.exe /c",
+    w2_p: "cmd.exe рвёт командную строку на переносах строк, тихо теряя флаги после них", w2_f: "Переносы строк в аргументах схлопываются в пробел перед сборкой команды",
+    w3_p: "npm-глобальный bin не всегда в PATH, даже если CLI установлен", w3_f: "Fallback на %APPDATA%\\npm",
+    w4_p: "Codex exec по умолчанию в sandbox=read-only — не может писать файлы даже с верным планом", w4_f: "run_codex передаёт --sandbox workspace-write",
+    w5_p: "Зависший процесс агента блокирует вызывающего навсегда", w5_f: "Таймаут 15 минут, процесс убивается, бросается CliAgentError",
+    i_title: "Установка",
+    i_sub: "Python 3.11+. API-ключ на этапе импорта не нужен — передаётся в каждом вызове отдельно.",
+    l_title: "cwd — не песочница",
+    l_h2: "Прочитай перед тем, как указывать cwd на реальный проект",
+    l1: "<code>run_claude_code</code> и <code>run_codex</code> запускают настоящего, полноценного кодинг-агента как подпроцесс. <code>cwd</code> задаёт его рабочую директорию — это <b>не</b> файловая тюрьма.",
+    l2: "Подтверждено прямым тестированием: агент может читать и писать где угодно в пределах прав ОС-пользователя, включая за пределами <code>cwd</code> — например, найдёт editable pip-установку и пойдёт в соседний проект, или запустит <code>git</code>, который сам ищет <code>.git</code> вверх по родительским папкам и закоммитит в репозиторий выше <code>cwd</code>.",
+    l3: "Если нужна реальная изоляция агента в директории — это требует OS-уровня (контейнер, урезанный пользователь, VM); библиотека этого не даёт.",
+    ft_issues: "Сообщить о проблеме",
+    ft_note: "Часть тулчейна Meldlane. Без телеметрии, рекламы и облака, кроме того API, на который ты сам укажешь."
+  }
+};
+
+const toggle = document.getElementById("lang-toggle");
+function setLang(lang) {
+  const dict = I18N[lang];
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const k = el.dataset.i18n;
+    if (dict[k]) el.textContent = dict[k];
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    const k = el.dataset.i18nHtml;
+    if (dict[k]) el.innerHTML = dict[k];
+  });
+  toggle.textContent = lang === "en" ? "RU" : "EN";
+  localStorage.setItem("lg-lang", lang);
+}
+toggle.addEventListener("click", () =>
+  setLang(document.documentElement.lang === "en" ? "ru" : "en"));
+setLang(localStorage.getItem("lg-lang") ||
+  ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en"));
+</script>
+</body>
+</html>
