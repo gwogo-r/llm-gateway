@@ -29,5 +29,8 @@ dependencies = [
     "pydantic",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
 [tool.setuptools.packages.find]
 include = ["llm_gateway*"]
